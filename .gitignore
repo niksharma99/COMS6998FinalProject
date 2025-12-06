@@ -1,0 +1,56 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+.projectLLM/
+
+# Dataset
+Dataset/raw/
+Dataset/processed/*_partial.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+
+# Backup files
+*.bak
+*~
+
+# embedding
+*.parquet
+*.npz

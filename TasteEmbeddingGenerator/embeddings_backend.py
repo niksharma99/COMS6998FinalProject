@@ -1,0 +1,115 @@
+# TasteEmbeddingGenerator/embeddings_backend.py
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import List, Literal, Optional
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class BaseEmbeddingBackend(ABC):
+    """Abstract interface for embedding backends.
+
+    Any backend must implement `embed_texts` with the same signature.
+    """
+
+    @abstractmethod
+    def embed_texts(self, texts: List[str]) -> List[List[float]]:
+        """Encode a batch of texts into vectors (list of float lists)."""
+        raise NotImplementedError
+
+
+# -------- OpenAI backend (text-embedding-3-large ..) --------
+
+@dataclass
+class OpenAIEmbeddingBackend(BaseEmbeddingBackend):
+    """Embedding backend using OpenAI's text-embedding models.
+
+    Requires:
+        pip install openai
+        and an environment variable: OPENAI_API_KEY
+    """
+
+    model: str = "text-embedding-3-large"
+
+    _client: any = field(init=False, repr=False, default=None)
+
+    def _ensure_client(self):
+        if self._client is None:
+            try:
+                from openai import OpenAI  # type: ignore
+            except ImportError as e:
+                raise ImportError(
+                    "openai package is required for OpenAIEmbeddingBackend. "
+                    "Install with `pip install openai`."
+                ) from e
+            self._client = OpenAI()
+            logger.info(f"[OpenAIEmbeddingBackend] Initialized with model={self.model}")
+
+    def embed_texts(self, texts: List[str]) -> List[List[float]]:
+        self._ensure_client()
+        if not texts:
+            return []
+
+        resp = self._client.embeddings.create(
+            model=self.model,
+            input=texts,
+        )
+        # openai v1: resp.data[i].embedding
+        return [d.embedding for d in resp.data]
+
+
+# -------- SentenceTransformer backend (BGE, GTE, Jina..) --------
+
+@dataclass
+class SentenceTransformerBackend(BaseEmbeddingBackend):
+    """Embedding backend using sentence-transformers (e.g., BGE, GTE, Jina).
+
+    Example models:
+      - 'BAAI/bge-base-en-v1.5'
+      - 'thenlper/gte-base'
+      - 'jinaai/jina-embeddings-v2-base-en'
+    """
+
+    model_name: str = "BAAI/bge-base-en-v1.5"
+    device: Optional[str] = None  # e.g. 'cuda', 'mps', 'cpu'
+
+    _model: any = field(init=False, repr=False, default=None)
+
+    def _ensure_model(self):
+        if self._model is None:
+            try:
+                from sentence_transformers import SentenceTransformer  # type: ignore
+            except ImportError as e:
+                raise ImportError(
+                    "sentence-transformers is required for SentenceTransformerBackend. "
+                    "Install with `pip install sentence-transformers`."
+                ) from e
+            self._model = SentenceTransformer(self.model_name, device=self.device)
+            logger.info(
+                f"[SentenceTransformerBackend] Loaded model={self.model_name} on device={self.device}"
+            )
+
+    def embed_texts(self, texts: List[str]) -> List[List[float]]:
+        self._ensure_model()
+        if not texts:
+            return []
+        # encode returns np.ndarray; convert to list of lists
+        import numpy as np
+
+        vecs = self._model.encode(
+            texts,
+            batch_size=64,
+            show_progress_bar=True,
+            convert_to_numpy=True,
+            normalize_embeddings=True,  # cosine similarity
+        )
+        if isinstance(vecs, list):
+            return vecs
+        if isinstance(vecs, np.ndarray):
+            return vecs.tolist()
+        return list(vecs)
