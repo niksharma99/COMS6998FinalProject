@@ -1,5 +1,4 @@
 
-````markdown
 # 🎬 LLM-Augmented Movie Recommender Backend
 
 This backend exposes a **taste-embedding–driven movie recommender** with:
@@ -346,5 +345,4 @@ User ID:  (Enter → reuses that session id)
 **Q: Can I use only “top 4 movies” instead of a description?**
 **A:** Yes. The current system embeds that text directly and it already works well. In a future refinement you can explicitly parse those titles and average their embeddings.
 
-```
 ```
