@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Movie Recommender Test</title>
+</head>
+<body>
+  <h2>Movie Recommender Test</h2>
+
+  <textarea id="input" rows="4" cols="50">
+I like mind-bending psychological sci-fi
+  </textarea><br>
+
+  <input id="userId" placeholder="Optional User ID"><br><br>
+
+  <button onclick="send()">Recommend</button>
+
+  <pre id="output"></pre>
+
+  <script>
+    async function send() {
+      const user_input = document.getElementById("input").value;
+      const user_id = document.getElementById("userId").value || null;
+
+      const res = await fetch("http://127.0.0.1:8000/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_input, user_id })
+      });
+
+      const data = await res.json();
+      document.getElementById("output").textContent =
+        JSON.stringify(data, null, 2);
+    }
+  </script>
+</body>
+</html>
