@@ -115,7 +115,8 @@ if __name__ == "__main__":
 
     cfg = TasteEmbeddingConfig(
         project_root=project_root,
-        backend_type="sentence-transformers",       # OR "openai"
+        # backend_type="sentence-transformers",       # OR "openai"
+        backend_type="openai",
         model_name="BAAI/bge-base-en-v1.5",         # BGE
         openai_model="text-embedding-3-large",      # OpenAI
         movie_sources=["movielens", "movietweetings", "inspired"],
@@ -126,4 +127,18 @@ if __name__ == "__main__":
 
     gen = TasteEmbeddingGenerator(cfg)
 
-    gen.run_full_pipeline(movie_limit=None)
+    # case1) when running full pipeline (movie embedding + user embedding)
+    # gen.run_full_pipeline(movie_limit=None)
+
+    # case2) when running only user embedding (movie embedding already exists)
+    movie_emb_path = (
+        project_root
+        / "TasteEmbeddingGenerator"
+        / "artifacts"
+        / "movie_embeddings.parquet"
+    )
+
+    user_emb_path = gen.build_user_embeddings(movie_emb_path)
+
+    logger.info(f"[TasteEmbedding] Done. User embeddings: {user_emb_path}")
+

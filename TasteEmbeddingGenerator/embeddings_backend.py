@@ -35,8 +35,10 @@ class OpenAIEmbeddingBackend(BaseEmbeddingBackend):
     """
 
     model: str = "text-embedding-3-large"
+    batch_size: int = 64              # ← 한 번에 보낼 텍스트 개수
+    max_chars_per_text: int = 4000    # ← 너무 긴 유저 텍스트는 잘라서 보냄 (선택)
 
-    _client: any = field(init=False, repr=False, default=None)
+    _client: Any = field(init=False, repr=False, default=None)
 
     def _ensure_client(self):
         if self._client is None:
@@ -50,17 +52,39 @@ class OpenAIEmbeddingBackend(BaseEmbeddingBackend):
             self._client = OpenAI()
             logger.info(f"[OpenAIEmbeddingBackend] Initialized with model={self.model}")
 
+    def _truncate(self, text: str) -> str:
+        if self.max_chars_per_text is None:
+            return text
+        text = text or ""
+        if len(text) > self.max_chars_per_text:
+            return text[: self.max_chars_per_text]
+        return text
+
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
+        """Embed a list of texts using batched OpenAI API calls."""
         self._ensure_client()
         if not texts:
             return []
 
-        resp = self._client.embeddings.create(
-            model=self.model,
-            input=texts,
-        )
-        # openai v1: resp.data[i].embedding
-        return [d.embedding for d in resp.data]
+        all_embeddings: List[List[float]] = []
+
+        for start in range(0, len(texts), self.batch_size):
+            batch = texts[start : start + self.batch_size]
+
+            batch = [self._truncate(t) for t in batch]
+
+            resp = self._client.embeddings.create(
+                model=self.model,
+                input=batch,
+            )
+            all_embeddings.extend([d.embedding for d in resp.data])
+
+            logger.info(
+                f"[OpenAIEmbeddingBackend] Embedded batch "
+                f"{start}–{start + len(batch) - 1} / {len(texts)}"
+            )
+
+        return all_embeddings
 
 
 # -------- SentenceTransformer backend (BGE, GTE, Jina..) --------

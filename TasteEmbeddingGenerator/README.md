@@ -276,11 +276,12 @@ All generated artifacts (movie/user embeddings, FAISS indexes, parquet files) ar
 
 #### 🔗 Download Artifacts
 [Google Drive](https://drive.google.com/drive/folders/1ci0GZueB6-zbxbYb0hCWOCCom9Odj3En?usp=sharing)
-- [movie_embeddings.parquet](https://drive.google.com/file/d/1ld84nIDTzt_1DGxngMBn7n8Yp6mHP4tk/view?usp=sharing)
-- [user_embeddings.parquet](https://drive.google.com/file/d/1qOhnyLKPCYxeueeMgxy__GS9SatdTg6I/view?usp=sharing)
+- [HuggingFace model's embedding](https://drive.google.com/drive/folders/1mseNC_7f8Iy4pLJj977qSO9bo2YWlF7n?usp=sharing)
+- [OpenAI model's embedding](https://drive.google.com/drive/folders/1emBZb4zts0d7ca0_4es1WDfba7HNp3E7?usp=drive_link)
 
 You can download them manually or run the script below:
 ```bash
+# HuggingFace Model's embedding download ver
 bash ./TasteEmbeddingGenerator/src/download_artifacts.sh
 ```
 
