@@ -5,6 +5,7 @@ import { PageLayout } from './components/layout/PageLayout';
 import { HomePage } from './pages/HomePage';
 import { AuthPage } from './pages/AuthPage';
 import { TMDBCallbackPage } from './pages/TMDBCallbackPage';
+import { PersonalizingPage } from './pages/PersonalizingPage';
 import { ReviewsPage } from './pages/ReviewsPage';
 import { VisualizationPage } from './pages/VisualizationPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -17,6 +18,7 @@ function App() {
           {/* Public routes */}
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/auth/tmdb/callback" element={<TMDBCallbackPage />} />
+          <Route path="/personalizing" element={<PersonalizingPage />} />
 
           {/* Protected routes */}
           <Route

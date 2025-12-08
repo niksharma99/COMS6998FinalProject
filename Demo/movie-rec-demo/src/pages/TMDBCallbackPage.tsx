@@ -81,8 +81,17 @@ export function TMDBCallbackPage() {
 
         // Redirect after a short delay to show success
         setTimeout(() => {
-          // Always go to home, we'll show onboarding there if needed
-          navigate('/');
+        // If user has enough movie data, go to personalizing page
+        const hasEnoughData = 
+            (ratedMovies.results?.length || 0) >= 5 || 
+            (favoriteMovies.results?.length || 0) >= 3;
+            
+        if (hasEnoughData) {
+            navigate('/personalizing');
+        } else {
+            // Not enough TMDB data, go to home for onboarding
+            navigate('/');
+        }
         }, 1500);
 
       } catch (err) {
