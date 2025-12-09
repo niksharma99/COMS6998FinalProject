@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Any
 
 import logging
 
@@ -35,8 +35,8 @@ class OpenAIEmbeddingBackend(BaseEmbeddingBackend):
     """
 
     model: str = "text-embedding-3-large"
-    batch_size: int = 64              # ← 한 번에 보낼 텍스트 개수
-    max_chars_per_text: int = 4000    # ← 너무 긴 유저 텍스트는 잘라서 보냄 (선택)
+    batch_size: int = 64      # ← OpenAI API batch size
+    max_chars_per_text: int = 4000    # ← max chars per text input
 
     _client: Any = field(init=False, repr=False, default=None)
 
