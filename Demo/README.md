@@ -1,4 +1,4 @@
-# 🎬 MovieRec Demo - Frontend UI
+# 🎬 ReelReason Demo - Frontend UI
 
 This is the frontend demo for our LLM-Driven Conversational Movie Recommendation system. It provides a web interface showcasing personalized recommendations, explainability features, and the "Taste Wrapped" visualization.
 

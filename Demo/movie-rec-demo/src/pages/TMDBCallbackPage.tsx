@@ -85,7 +85,7 @@ export function TMDBCallbackPage() {
         const hasEnoughData = 
             (ratedMovies.results?.length || 0) >= 5 || 
             (favoriteMovies.results?.length || 0) >= 3;
-            
+
         if (hasEnoughData) {
             navigate('/personalizing');
         } else {
@@ -109,7 +109,7 @@ export function TMDBCallbackPage() {
       <div className="text-center">
         <div className="flex items-center justify-center gap-2 mb-6">
           <Film className="w-10 h-10 text-red-600" />
-          <span className="text-2xl font-bold text-white">MovieRec</span>
+          <span className="text-2xl font-bold text-white">ReelReason</span>
         </div>
 
         {status === 'loading' && (

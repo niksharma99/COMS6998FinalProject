@@ -56,7 +56,7 @@ export function PersonalizingPage() {
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <Film className="w-10 h-10 text-red-600" />
-          <span className="text-2xl font-bold text-white">MovieRec</span>
+          <span className="text-2xl font-bold text-white">ReelReason</span>
         </div>
 
         {/* Animated icon */}

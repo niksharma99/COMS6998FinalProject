@@ -72,7 +72,7 @@ export function AuthPage() {
         <div className="max-w-md">
           <div className="flex items-center gap-3 mb-8">
             <Film className="w-12 h-12 text-red-600" />
-            <span className="text-3xl font-bold text-white">MovieRec</span>
+            <span className="text-3xl font-bold text-white">ReelReason</span>
           </div>
           <h1 className="text-4xl font-bold text-white mb-4">
             Discover movies you'll actually love
@@ -90,7 +90,7 @@ export function AuthPage() {
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-2 mb-8">
             <Film className="w-8 h-8 text-red-600" />
-            <span className="text-2xl font-bold text-white">MovieRec</span>
+            <span className="text-2xl font-bold text-white">ReelReason</span>
           </div>
 
           {/* Auth card */}

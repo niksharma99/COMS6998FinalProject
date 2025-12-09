@@ -18,7 +18,7 @@ export function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
             <Film className="w-8 h-8 text-red-600" />
-            <span className="text-xl font-bold text-white">MovieRec</span>
+            <span className="text-xl font-bold text-white">ReelReason</span>
           </Link>
 
           {/* Navigation */}
