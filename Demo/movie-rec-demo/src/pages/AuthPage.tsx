@@ -53,11 +53,11 @@ export function AuthPage() {
     }
   };
 
-  const handleOnboardingComplete = (data: OnboardingData) => {
+  const handleOnboardingComplete = async (data: OnboardingData) => {
     console.log('Onboarding complete:', data);
     localStorage.setItem('onboardingData', JSON.stringify(data));
     login();
-    navigate('/');
+    navigate('/personalizing');  // Changed from '/'
   };
 
   const handleOnboardingSkip = () => {
