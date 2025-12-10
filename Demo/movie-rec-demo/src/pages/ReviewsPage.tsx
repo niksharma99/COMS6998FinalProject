@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Clock, MessageSquare, Star, Sparkles } from 'lucide-react';
 import { MoviePicker } from '../components/onboarding/MoviePicker';
 import { ReviewCard, type Review } from '../components/reviews/ReviewCard';
+import { RegenerateModal } from '../components/reviews/RegenerateModal';
 import { getMovies } from '../api/tmdb';
 import { Spinner } from '../components/ui/Spinner';
-import { generatePersonalizedRecommendations } from '../api/recommendations';
+import { clearRecommendations } from '../api/recommendations';
 import type { TMDBMovie } from '../types/movie';
 
 const STORAGE_KEY = 'userReviews';
@@ -17,7 +19,8 @@ export function ReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [movieMap, setMovieMap] = useState<Record<number, TMDBMovie>>({});
   const [isLoadingMovies, setIsLoadingMovies] = useState(false);
-  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [showRegenerateModal, setShowRegenerateModal] = useState(false);
+  const navigate = useNavigate();
 
   const selectedMovieId = selectedMovieIds[0] ?? null;
 
@@ -126,6 +129,12 @@ export function ReviewsPage() {
     // Add to taste profile if highly rated
     addToTasteProfile(selectedMovieId, rating);
 
+    // Clear cached recommendations so they'll be regenerated
+    clearRecommendations();
+
+    // Get movie name for the message
+    const movieName = movieMap[selectedMovieId]?.title || 'This movie';
+
     // Reset form
     setSelectedMovieIds([]);
     setRating(8);
@@ -134,41 +143,35 @@ export function ReviewsPage() {
     if (rating >= 8) {
       setStatusMessage({ 
         type: 'success', 
-        text: `Review saved! "${movieMap[selectedMovieId]?.title || 'This movie'}" was added to your taste profile.` 
+        text: `Review saved! "${movieName}" will appear in your "Because you loved..." recommendations.` 
       });
     } else {
       setStatusMessage({ type: 'success', text: 'Review saved!' });
     }
     
-    setTimeout(() => setStatusMessage(null), 3000);
+    setTimeout(() => setStatusMessage(null), 4000);
   };
 
   const handleDelete = (movieId: number) => {
     setReviews((prev) => prev.filter((r) => r.movieId !== movieId));
     removeFromTasteProfile(movieId);
+    clearRecommendations();
   };
 
-  const handleRegenerateRecommendations = async () => {
-    setIsRegenerating(true);
-    try {
-      await generatePersonalizedRecommendations();
-      setStatusMessage({ 
-        type: 'success', 
-        text: 'Recommendations updated! Check the home page for new picks.' 
-      });
-    } catch (error) {
-      console.error('Failed to regenerate:', error);
-      setStatusMessage({ 
-        type: 'info', 
-        text: 'Could not regenerate recommendations. Try again later.' 
-      });
-    } finally {
-      setIsRegenerating(false);
-      setTimeout(() => setStatusMessage(null), 3000);
-    }
+  const handleRegenerateClick = () => {
+    setShowRegenerateModal(true);
   };
 
-  // Check if user has new reviews that could affect recommendations
+  const handleRegenerateComplete = () => {
+    setShowRegenerateModal(false);
+    setStatusMessage({ 
+      type: 'success', 
+      text: 'Recommendations updated! Visit the home page to see your new picks.' 
+    });
+    setTimeout(() => setStatusMessage(null), 4000);
+  };
+
+  // Check if user has reviews that could affect recommendations
   const highRatedCount = reviews.filter((r) => r.rating >= 8).length;
 
   return (
@@ -176,7 +179,7 @@ export function ReviewsPage() {
       <div className="flex flex-col gap-2 mb-8">
         <h1 className="text-3xl font-bold text-white">Your Reviews</h1>
         <p className="text-gray-400">
-          Rate and review movies to improve your recommendations.
+          Rate movies 8+ to add them to your taste profile and improve recommendations.
         </p>
       </div>
 
@@ -185,7 +188,7 @@ export function ReviewsPage() {
         <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Star className="w-5 h-5 text-red-500" />
-            <h2 className="text-xl font-semibold text-white">Add a review</h2>
+            <h2 className="text-xl font-semibold text-white">Add a Review</h2>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -222,8 +225,8 @@ export function ReviewsPage() {
               />
               <div className="flex justify-between text-xs text-gray-500">
                 <span>Not for me</span>
-                <span className="text-yellow-500">
-                  {rating >= 8 ? '★ Will be added to your taste profile' : ''}
+                <span className={rating >= 8 ? 'text-yellow-500 font-medium' : ''}>
+                  {rating >= 8 ? '★ Will influence your recommendations' : ''}
                 </span>
                 <span>Loved it</span>
               </div>
@@ -279,15 +282,10 @@ export function ReviewsPage() {
             {/* Regenerate button */}
             {highRatedCount > 0 && (
               <button
-                onClick={handleRegenerateRecommendations}
-                disabled={isRegenerating}
-                className="flex items-center gap-2 text-sm text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                onClick={handleRegenerateClick}
+                className="flex items-center gap-2 text-sm text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg transition-colors"
               >
-                {isRegenerating ? (
-                  <Spinner className="w-4 h-4" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )}
+                <Sparkles className="w-4 h-4" />
                 <span>Update Recommendations</span>
               </button>
             )}
@@ -307,7 +305,7 @@ export function ReviewsPage() {
               <Star className="w-10 h-10 text-gray-700 mx-auto mb-3" />
               <p className="text-gray-400">No reviews yet</p>
               <p className="text-gray-500 text-sm mt-1">
-                Rate movies 8+ to add them to your taste profile
+                Rate movies 8+ to see "Because you loved..." on the home page
               </p>
             </div>
           )}
@@ -325,6 +323,13 @@ export function ReviewsPage() {
           </div>
         </div>
       </div>
+
+      {/* Regenerate Modal */}
+      <RegenerateModal
+        isOpen={showRegenerateModal}
+        onClose={() => setShowRegenerateModal(false)}
+        onComplete={handleRegenerateComplete}
+      />
     </div>
   );
 }

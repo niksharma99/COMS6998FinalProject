@@ -15,11 +15,19 @@ interface RecommendationSet {
   recommendations: GeneratedRecommendation[];
 }
 
+interface Review {
+  movieId: number;
+  rating: number;
+  text: string;
+  createdAt: string;
+}
+
 // Get user's movie data from localStorage
 function getUserMovieData(): { 
   ratedMovies: number[]; 
   favoriteMovies: number[];
   recentMovies: number[];
+  reviewedMovies: { id: number; rating: number }[];
   vibes: string[];
   customVibeText: string;
 } {
@@ -31,10 +39,18 @@ function getUserMovieData(): {
   const onboardingData = localStorage.getItem('onboardingData');
   const onboardingParsed = onboardingData ? JSON.parse(onboardingData) : {};
 
+  // From reviews (NEW - prioritize these!)
+  const reviews: Review[] = JSON.parse(localStorage.getItem('userReviews') || '[]');
+  const reviewedMovies = reviews
+    .filter(r => r.rating >= 7) // Include 7+ rated movies
+    .sort((a, b) => b.rating - a.rating) // Sort by rating descending
+    .map(r => ({ id: r.movieId, rating: r.rating }));
+
   return {
     ratedMovies: tmdbParsed.ratedMovies || [],
     favoriteMovies: tmdbParsed.favoriteMovies || [],
     recentMovies: onboardingParsed.recentMovies || [],
+    reviewedMovies,
     vibes: onboardingParsed.selectedVibes || [],
     customVibeText: onboardingParsed.customVibeText || '',
   };
@@ -43,7 +59,7 @@ function getUserMovieData(): {
 // Fetch movie details for a list of IDs
 async function getMovieDetails(movieIds: number[]): Promise<TMDBMovie[]> {
   const movies = await Promise.all(
-    movieIds.slice(0, 10).map((id) => getMovie(id).catch(() => null))
+    movieIds.slice(0, 15).map((id) => getMovie(id).catch(() => null))
   );
   return movies.filter((m): m is TMDBMovie => m !== null);
 }
@@ -89,11 +105,19 @@ interface RawRecommendationSet {
 // Call OpenAI to generate recommendations (returns movie titles, not IDs)
 async function callOpenAIForRecommendations(
   userMovies: TMDBMovie[],
+  highlightMovies: TMDBMovie[], // Movies to specifically feature in "Because you loved..."
   vibes: string[],
   customVibeText: string
 ): Promise<RawRecommendationSet[]> {
-  const movieList = userMovies
+  // Create a list of all movies, marking which ones to highlight
+  const allMoviesList = userMovies
     .map((m) => `- ${m.title} (${m.release_date?.split('-')[0]})`)
+    .join('\n');
+
+  // Specifically call out the highlight movies for "Because you loved..." carousels
+  const highlightList = highlightMovies
+    .slice(0, 3) // Max 3 highlight carousels
+    .map((m) => `- "${m.title}" (${m.release_date?.split('-')[0]})`)
     .join('\n');
 
   const vibeList = vibes.length > 0 ? vibes.join(', ') : 'not specified';
@@ -102,7 +126,10 @@ async function callOpenAIForRecommendations(
   const prompt = `You are a movie recommendation expert. Based on the user's movie preferences, generate personalized recommendations.
 
 USER'S FAVORITE/RECENTLY WATCHED MOVIES:
-${movieList}
+${allMoviesList}
+
+MOVIES TO SPECIFICALLY FEATURE (user's highest-rated - use these for "Because you loved..." carousels):
+${highlightList || 'Use any from the list above'}
 
 USER'S PREFERRED VIBES: ${vibeList}
 USER'S CUSTOM DESCRIPTION: ${customVibe}
@@ -111,12 +138,12 @@ Generate 3 recommendation categories with 4-5 movies each. Return ONLY valid JSO
 {
   "categories": [
     {
-      "title": "Because you loved [movie name]...",
+      "title": "Because you loved [SPECIFIC MOVIE FROM HIGHLIGHT LIST]...",
       "recommendations": [
         {
           "title": "<exact movie title>",
           "year": <release year as number>,
-          "explanation": "<1-2 sentence explanation of why this fits their taste, referencing specific movies they like>",
+          "explanation": "<1-2 sentence explanation referencing the specific movie from the category title>",
           "matchScore": <number 75-98>,
           "factors": ["<factor1>", "<factor2>", "<factor3>"]
         }
@@ -125,12 +152,14 @@ Generate 3 recommendation categories with 4-5 movies each. Return ONLY valid JSO
   ]
 }
 
-Requirements:
+CRITICAL REQUIREMENTS:
+- The FIRST category MUST be titled "Because you loved [MOVIE]..." using a movie from the HIGHLIGHT list
+- If there are multiple highlight movies, create multiple "Because you loved..." categories
 - Use EXACT official movie titles (e.g., "The Dark Knight" not "Dark Knight")
 - Include the release year to avoid confusion with remakes
-- Make explanations personal, referencing their specific movies/vibes by name
-- Factors should be things like: "director style", "emotional depth", "plot complexity", "visual style", "ensemble cast", "pacing", "themes", "tone", "humor", "action sequences"
-- Category titles should be engaging like "Because you loved Inception...", "For your mind-bending mood...", "Hidden gems you'll appreciate..."
+- Make explanations personal, specifically referencing the movie in the carousel title
+- Example: For "Because you loved Inception...", an explanation should say "Like Inception, this film features..."
+- Factors should be: "director style", "emotional depth", "plot complexity", "visual style", "ensemble cast", "pacing", "themes", "tone", "humor", "action sequences"
 - Match scores should feel realistic (75-98 range)
 - Do NOT recommend movies the user has already listed
 - Choose movies that are actually similar to what they like
@@ -208,7 +237,6 @@ async function resolveMovieIds(
 }
 
 // Main function to generate and store recommendations
-// Main function to generate and store recommendations
 export async function generatePersonalizedRecommendations(): Promise<void> {
   const userData = getUserMovieData();
 
@@ -217,21 +245,31 @@ export async function generatePersonalizedRecommendations(): Promise<void> {
     ratedMovies: userData.ratedMovies.length,
     favoriteMovies: userData.favoriteMovies.length,
     recentMovies: userData.recentMovies.length,
+    reviewedMovies: userData.reviewedMovies.length,
     vibes: userData.vibes,
     customVibeText: userData.customVibeText,
   });
 
-  // Combine all user movie IDs (from both TMDB and onboarding)
+  // Prioritize reviewed movies for "Because you loved..." carousels
+  const highlightMovieIds = userData.reviewedMovies
+    .filter(r => r.rating >= 8) // Only 8+ for highlights
+    .slice(0, 3)
+    .map(r => r.id);
+
+  // Combine all user movie IDs (from all sources)
   const allMovieIds = [
+    ...highlightMovieIds, // Put highlight movies first
     ...userData.favoriteMovies,
     ...userData.recentMovies,
     ...userData.ratedMovies,
+    ...userData.reviewedMovies.map(r => r.id),
   ];
 
-  // Remove duplicates
+  // Remove duplicates while preserving order (highlight movies stay first)
   const uniqueMovieIds = [...new Set(allMovieIds)];
 
   console.log('Unique movie IDs:', uniqueMovieIds);
+  console.log('Highlight movie IDs (for "Because you loved..."):', highlightMovieIds);
 
   // Check if we have anything to work with
   const hasMovies = uniqueMovieIds.length > 0;
@@ -242,13 +280,14 @@ export async function generatePersonalizedRecommendations(): Promise<void> {
     return;
   }
 
-  // Get movie details for the IDs we have
-  let movieDetails: TMDBMovie[] = [];
-  if (uniqueMovieIds.length > 0) {
-    console.log('Fetching movie details...');
-    movieDetails = await getMovieDetails(uniqueMovieIds);
-    console.log('Fetched movie details:', movieDetails.length);
-  }
+  // Get movie details for all movies
+  console.log('Fetching movie details...');
+  const movieDetails = await getMovieDetails(uniqueMovieIds);
+  console.log('Fetched movie details:', movieDetails.length);
+
+  // Get highlight movie details specifically
+  const highlightMovies = await getMovieDetails(highlightMovieIds);
+  console.log('Highlight movies for carousels:', highlightMovies.map(m => m.title));
 
   // If we have no movie details but have vibes, we can still generate recommendations
   if (movieDetails.length === 0 && !hasVibes) {
@@ -260,6 +299,7 @@ export async function generatePersonalizedRecommendations(): Promise<void> {
   console.log('Calling OpenAI...');
   const rawRecommendations = await callOpenAIForRecommendations(
     movieDetails,
+    highlightMovies.length > 0 ? highlightMovies : movieDetails.slice(0, 3),
     userData.vibes,
     userData.customVibeText
   );
@@ -294,7 +334,7 @@ export function getStoredRecommendations(): RecommendationSet[] | null {
   }
 }
 
-// Clear recommendations (for testing/logout)
+// Clear recommendations (for testing/logout/when reviews change)
 export function clearRecommendations(): void {
   localStorage.removeItem('personalizedRecommendations');
 }
