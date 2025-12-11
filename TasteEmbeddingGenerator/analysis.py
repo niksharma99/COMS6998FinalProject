@@ -137,7 +137,6 @@ def nearest_neighbors(
 
     topk = movie_df.sort_values("similarity", ascending=False).head(top_k + 1)
 
-    # anchor 자신은 첫 번째에 있을 가능성이 높으니 제외하고 상위 K만 리턴
     topk_wo_anchor = topk[topk["movie_id"] != anchor["movie_id"]].head(top_k)
 
     return anchor, topk_wo_anchor
