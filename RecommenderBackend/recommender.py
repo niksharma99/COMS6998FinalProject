@@ -12,6 +12,7 @@ from vector_index import MovieIndex
 from llm import call_llm
 from config import MOVIE_EMBED_PATH, TOP_K, FINAL_K
 from user_store import load_user_state, save_user_state
+from gpt_reranker import predict_like_score, combined_score
 
 # -------------------------------------------------------------------
 # Make TasteEmbeddingGenerator importable (sibling directory)
@@ -348,6 +349,21 @@ def recommend(user_input: str, user_id: Optional[str] = None) -> str:
     # ----------------- 4) MOVIE RETRIEVAL ------------------------------------
     # NOTE: movie_index.search should accept user_vec (D,) or (1, D)
     idxs, scores = movie_index.search(user_vec, k=TOP_K)
+        # idxs, scores = movie_index.search(user_vec, k=TOP_K)
+    # idxs = np.asarray(idxs).ravel()
+    # scores = np.asarray(scores).ravel()
+
+    # # Build candidate list with combined scores
+    # scored = []
+    # for idx, base_score in zip(idxs, scores):
+    #     movie = movie_metadata[idx]
+    #     gpt_score = predict_like_score(history_text, movie)  # or user_input
+    #     final_score = combined_score(user_vec, movie_embeddings[idx], gpt_score)
+    #     scored.append((final_score, movie))
+
+    # # Sort and keep FINAL_K
+    # scored.sort(key=lambda x: x[0], reverse=True)
+    # top_movies = [m for _, m in scored[:FINAL_K]]
 
     # Make sure these are 1D arrays
     idxs = np.asarray(idxs)

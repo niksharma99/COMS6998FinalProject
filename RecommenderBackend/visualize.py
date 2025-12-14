@@ -4,7 +4,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import numpy as np
-
+import csv
+import pandas as pd
 from embedding_loader import load_movie_embeddings
 from config import MOVIE_EMBED_PATH
 from visualizations import (
@@ -190,6 +191,9 @@ def main():
     )
 
     # ---------- 2) local neighborhood with genres ----------
+    movie_cluster_genre = pd.read_csv('movie_cluster_genres.csv')["cluster_genre"]
+
+
     local_path = out_dir / f"{user_id}_msg{actual_msg_index}_local_map.png"
     print(f"[visualize] Saving local neighborhood map to {local_path}")
     plot_local_neighborhood_with_genres(
@@ -200,6 +204,7 @@ def main():
         movie_embeddings=movie_embeddings,
         movie_metadata=movie_metadata,
         out_path=local_path,
+        movie_cluster_genre=movie_cluster_genre
     )
 
     # ---------- 3) cluster-level overview ----------
@@ -246,6 +251,33 @@ def main():
         cluster_genres=cluster_genres,
         out_path=local_path,
     )
+
+    from visualizations.plots import plot_global_sampled_genre_map
+    # if you load cluster genres from DB, pass them in as movie_cluster_genre
+    # for now you can just set it to None or compute on the fly
+
+
+    # with open('movie_cluster_genres.csv', 'r') as read_obj:
+
+    #     # Return a reader object which will
+    #     # iterate over lines in the given csvfile
+    #     csv_reader = csv.reader(read_obj)
+
+    #     # convert string to list
+    #     movie_cluster_genre = list(csv_reader)
+
+    sampled_map_path = out_dir / f"{user_id}_msg{actual_msg_index}_global_sampled_genres.png"
+    plot_global_sampled_genre_map(
+        user_id=user_id,
+        msg_idx=actual_msg_index,
+        user_vec=user_vec,
+        rec_indices=rec_indices,
+        movie_embeddings=movie_embeddings,
+        movie_metadata=movie_metadata,
+        out_path=sampled_map_path,
+        movie_cluster_genre=movie_cluster_genre,   # or your precomputed list
+    )
+
 
     print("[visualize] Done.")
 

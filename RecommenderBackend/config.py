@@ -10,3 +10,5 @@ USER_EMBED_PATH = os.getenv("USER_EMBED_PATH")
 
 TOP_K = 20
 FINAL_K = 5
+
+

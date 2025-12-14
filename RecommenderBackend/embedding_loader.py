@@ -29,3 +29,4 @@ def load_user_embeddings(path: str):
         user_vectors[row["user_id"]] = np.array(row["embedding"], dtype="float32")
 
     return user_vectors
+

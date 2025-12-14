@@ -113,6 +113,7 @@ def plot_local_neighborhood_with_genres(
     movie_metadata: List[dict],
     out_path: Path,
     n_local: int = 800,
+    movie_cluster_genre: List[str] | None = None,
 ) -> None:
     """
     Local map around the user:
@@ -182,10 +183,19 @@ def plot_local_neighborhood_with_genres(
     # ]
 
     # compute genres
-    local_genres_all = [
-        primary_genre_from_meta(movie_metadata[i]) or "Unknown"
-        for i in local_ids
-    ]
+    if movie_cluster_genre is not None:
+        # use precomputed cluster-majority genre per movie
+        local_genres_all = [movie_cluster_genre[i] for i in local_ids]
+    else:
+        # fall back to primary genre from metadata
+        local_genres_all = [
+            primary_genre_from_meta(movie_metadata[i]) or "Unknown"
+            for i in local_ids
+        ]
+    # local_genres_all = [
+    #     primary_genre_from_meta(movie_metadata[i]) or "Unknown"
+    #     for i in local_ids
+    # ]
 
     # mask out Unknown completely
     mask_known = np.array([g != "Unknown" for g in local_genres_all])
@@ -537,3 +547,156 @@ def plot_local_neighborhood_with_cluster_genres(
     fig.savefig(out_path, dpi=200)
     plt.close(fig)
     print(f"[viz] Saved {out_path}")
+
+
+# visualizations/plots.py
+# from .genres import primary_genre_from_meta, build_genre_color_map
+# from .utils import pca_2d
+
+def plot_global_sampled_genre_map(
+    user_id: str,
+    msg_idx: int,
+    user_vec: np.ndarray,
+    rec_indices: np.ndarray,
+    movie_embeddings: np.ndarray,
+    movie_metadata: List[dict],
+    out_path: Path,
+    # optional: precomputed per-movie cluster genres
+    movie_cluster_genre: List[str] | None = None,
+    sample_frac: float = 0.05,
+    max_points: int = 5000,
+) -> None:
+    """
+    Global PCA map:
+
+      • Random sample of movies, colored by genre
+        – if movie_cluster_genre is given, use that
+        – otherwise use primary_genre_from_meta()
+      • User taste as an orange star
+      • Top-K recommendations as green points with labels
+    """
+    N = movie_embeddings.shape[0]
+    rng = np.random.default_rng(0)
+
+    # --- 1) choose sample indices ---
+    n_sample = min(int(N * sample_frac), max_points)
+    sample_idx = rng.choice(N, size=n_sample, replace=False)
+
+    # always ensure recs are included
+    rec_indices = np.asarray(rec_indices, dtype=int)
+    sample_idx = np.unique(np.concatenate([sample_idx, rec_indices]))
+    sample_embs = movie_embeddings[sample_idx]
+
+    # --- 2) PCA on [sample + user + recs] ---
+    user_vec = np.asarray(user_vec, dtype=np.float32)
+    rec_embs = movie_embeddings[rec_indices]
+
+    X = np.vstack([sample_embs, user_vec[None, :], rec_embs])
+    X2 = pca_2d(X)
+
+    S = sample_embs.shape[0]
+    sample_2d = X2[:S]
+    user_2d = X2[S]
+    rec_2d = X2[S + 1 :]
+
+    # --- 3) genres + colors ---
+    if movie_cluster_genre is not None:
+        sample_genres = [movie_cluster_genre[i] for i in sample_idx]
+    else:
+        sample_genres = [primary_genre_from_meta(movie_metadata[i]) for i in sample_idx]
+
+    # drop Unknown from color mapping but keep them plotted light gray
+    UNKNOWN_COLOR = "#a63c3c"
+    # print(sample_genres)
+    known_genres = list([g for g in sample_genres if g and g != "Unknown"])
+    # print(known_genres)
+    color_map = build_genre_color_map(known_genres)
+
+    sample_colors = [
+        color_map[g] if g in color_map else UNKNOWN_COLOR
+        for g in sample_genres
+    ]
+
+    # --- 4) plot ---
+    fig, ax = plt.subplots(figsize=(10, 7))
+
+    # sampled movies
+    ax.scatter(
+        sample_2d[:, 0],
+        sample_2d[:, 1],
+        s=10,
+        c=sample_colors,
+        alpha=0.8,
+        linewidths=0,
+        label="Sampled movies",
+    )
+
+    # user
+    ax.scatter(
+        user_2d[0],
+        user_2d[1],
+        marker="*",
+        s=240,
+        edgecolor="black",
+        facecolor="orange",
+        linewidths=1.0,
+        label=f"user '{user_id}' taste",
+        zorder=3,
+    )
+
+    # recs
+    ax.scatter(
+        rec_2d[:, 0],
+        rec_2d[:, 1],
+        s=110,
+        edgecolor="black",
+        facecolor="limegreen",
+        linewidths=1.0,
+        label="top recommendations",
+        zorder=4,
+    )
+
+    # label recs
+    for idx, (x, y) in zip(rec_indices, rec_2d):
+        title = movie_metadata[idx].get("title") or movie_metadata[idx].get(
+            "tmdb_title"
+        ) or f"movie_{idx}"
+        short = textwrap.shorten(title, width=25, placeholder="…")
+        ax.text(
+            x + 0.01,
+            y + 0.01,
+            short,
+            fontsize=7,
+            ha="left",
+            va="bottom",
+        )
+
+    # legend for genres (only known)
+    legend_handles: List[Patch] = []
+    for g in sorted(set(known_genres)):
+        legend_handles.append(
+            Patch(facecolor=color_map[g], edgecolor="black", label=g)
+        )
+    genre_legend = ax.legend(
+        handles=legend_handles,
+        title="Genres (sampled global map)",
+        loc="upper left",
+        fontsize=8,
+    )
+    ax.add_artist(genre_legend)
+
+    # user / recs legend
+    ax.legend(loc="lower right", fontsize=8)
+
+    ax.set_title(
+        f"Global genre map (sampled) (user='{user_id}', msg={msg_idx})"
+    )
+    ax.set_xlabel("PC1")
+    ax.set_ylabel("PC2")
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=200)
+    plt.close(fig)
+    print(f"[viz] Saved {out_path}")
+

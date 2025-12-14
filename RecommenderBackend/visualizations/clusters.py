@@ -230,3 +230,39 @@ def plot_cluster_overview_with_user(
     fig.savefig(out_path, dpi=200)
     plt.close(fig)
     print(f"[viz] Saved {out_path}")
+
+
+# visualizations/clusters.py
+
+def compute_per_movie_cluster_genre(
+    movie_embeddings: np.ndarray,
+    movie_metadata: List[dict],
+    n_clusters: int = 25,
+    random_state: int = 0,
+) -> tuple[np.ndarray, List[str], List[str]]:
+    """
+    Cluster movies once and assign a 'cluster-majority genre' to every movie.
+
+    Returns:
+        labels:          (N,) int    cluster id per movie
+        cluster_genres:  list[str]   length K, majority genre per cluster
+        movie_cluster_genre: list[str] length N, genre for each movie
+    """
+    kmeans = KMeans(
+        n_clusters=n_clusters,
+        random_state=random_state,
+        n_init="auto",
+    )
+    labels = kmeans.fit_predict(movie_embeddings)
+
+    # majority genre per cluster
+    cluster_genres: list[str] = []
+    for cid in range(n_clusters):
+        idxs = np.where(labels == cid)[0].tolist()
+        g = majority_primary_genre(idxs, movie_metadata)
+        cluster_genres.append(g if g is not None else "Unknown")
+
+    # genre per movie = genre of its cluster
+    movie_cluster_genre = [cluster_genres[cid] for cid in labels]
+
+    return labels, cluster_genres, movie_cluster_genre

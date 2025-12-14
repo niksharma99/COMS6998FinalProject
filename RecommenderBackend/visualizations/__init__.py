@@ -22,6 +22,11 @@ from .plots import (
     plot_local_neighborhood_with_cluster_genres,
 )
 
+from .clusters import (
+    majority_primary_genre,
+    compute_per_movie_cluster_genre
+)
+
 __all__ = [
     "load_log_records",
     "pick_record_for_visualization",
