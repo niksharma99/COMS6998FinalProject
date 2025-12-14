@@ -45,6 +45,7 @@ export function RegenerateModal({ isOpen, onClose, onComplete, newReviews = [] }
   const [isComplete, setIsComplete] = useState(false);
   const [reviewedMovieNames, setReviewedMovieNames] = useState<{name: string; rating: number}[]>([]);
   const hasStarted = useRef(false);
+  const userEmbeddingSize = 3072;
 
   // Reset state when modal opens
   useEffect(() => {
@@ -73,7 +74,7 @@ export function RegenerateModal({ isOpen, onClose, onComplete, newReviews = [] }
           id: 'recompute-embedding',
           icon: Brain,
           title: 'Recomputing Taste Embedding',
-          description: 'Adjusting your 768-dimensional taste vector',
+          description: `Adjusting your ${userEmbeddingSize}-dimensional taste vector`,
           status: 'pending',
           technical: 'TasteEmbeddingGenerator.update(embedding, newMovies, weights)'
         },

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, use } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Film, 
@@ -24,6 +24,7 @@ interface PipelineStep {
   technical?: string;
 }
 
+const userEmbeddingSize = 3072;
 const INITIAL_STEPS: PipelineStep[] = [
   {
     id: 'fetch-profile',
@@ -45,9 +46,9 @@ const INITIAL_STEPS: PipelineStep[] = [
     id: 'compute-embedding',
     icon: Brain,
     title: 'Computing Taste Embedding',
-    description: 'Generating your 768-dimensional taste vector',
+    description: `Generating your ${userEmbeddingSize}-dimensional taste vector`,
     status: 'pending',
-    technical: 'TasteEmbeddingGenerator.encode(movies, vibes) → float[768]'
+    technical: `TasteEmbeddingGenerator.encode(movies, vibes) → float[${userEmbeddingSize}]`
   },
   {
     id: 'semantic-search',
@@ -122,7 +123,7 @@ export function PersonalizingPage() {
     const values = Array.from({ length: 12 }, () => 
       (Math.random() * 2 - 1).toFixed(4)
     );
-    return `[${values.join(', ')}, ... +756 dims]`;
+    return `[${values.join(', ')}, ... +3060 dims]`;
   };
 
   // Update step status
