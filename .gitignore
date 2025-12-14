@@ -8,6 +8,8 @@ env/
 Dataset/raw/
 Dataset/processed/*_partial.csv
 
+.env
+
 # Python
 __pycache__/
 *.py[cod]

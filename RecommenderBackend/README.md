@@ -1,16 +1,3 @@
-Below is a **complete rewritten README**, fully polished, technically clear, and professionally structured.
-It incorporates:
-
-✔ Your full retrieval → rerank → explanation pipeline
-✔ GPT-4o-mini fine-tuning
-✔ Conversational memory (EMA taste fusion)
-✔ Evaluation overview (no results, just structure)
-✔ Training details section
-✔ References to the relevant files without overwhelming the reader
-
-This is drop-in ready for your GitHub.
-
----
 
 # 🎬 LLM-Augmented Conversational Movie Recommender
 
