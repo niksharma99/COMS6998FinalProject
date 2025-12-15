@@ -1,99 +1,223 @@
-# LLM-Driven Conversational Movie Recommendation & Taste Graph Service
+# ReelReason: A LLM-Driven Conversational Movie Recommendation Platform
 
-This repository contains the implementation for our course final project: an end-to-end movie recommendation system powered by LLMs, personalized taste embeddings, and agentic workflows.
+LLM-Driven Conversational Movie Recommendation & Taste Graph Service is an end-to-end system that:
+- Builds **movie and user taste embeddings** from multi-source datasets
+- Uses **FAISS** for fast vector search over movies
+- Uses **LLMs (GPT-4o-mini + others)** for reranking and natural-language explanations
+- Exposes a **web demo** for conversational recommendations and “Taste Wrapped”–style visualizations
 
-To ensure smooth collaboration and integration across team members, please follow the guidelines below.
+This README gives a **high-level view of the whole repo**.
+Detailed usage and implementation notes live in each subdirectory’s own `README.md`.
 
 ### python version: Python 3.11.14
 
 ---
 
-## 📁 Project Structure
+## 📁 Repository Structure
 ```
 COMS6998FinalProject/
-│
-├── TasteEmbeddingGenerator/   # Task 1: User/Movie embedding generation
-│   ├── README.md
-│   └── ...
-│
-├── Demo/                      # Task 2: Conversational recommendation demo UI
-│   ├── README.md
-│   └── ...
-│
-├── AgenticFlow/               # Task 3: Agent-based LLM reasoning & retrieval pipeline
-│   ├── README.md
-│   └── ...
-│
-├── Dataset/                   # Raw & processed datasets
-│   ├── README.md
-│   └── ...
-│
-└── README.md                  # Collaboration guidelines (this file)
+├── Dataset/                  # Data collection, cleaning, and TMDB-based enrichment
+├── TasteEmbeddingGenerator/  # Movie & user embedding generation / analysis
+├── RecommenderBackend/       # Retrieval, reranking, conversational recommendation backend
+├── Demo/                     # React + TS frontend (“ReelReason” demo)
+├── .gitignore                # Ignore large artifacts, envs, caches, etc.
+└── README.md                 # ← This file (top-level overview)
 
 ```
 
+### `Dataset/` – Data Processing Pipeline
+Scripts to **download**, **clean**, **normalize**, and **enrich** all datasets:
+- **Movie-level** datasets (MovieLens, MovieTweetings, INSPIRED Movie DB)
+- **Dialogue & user-preference** datasets (ReDial, CCPE, GoEmotions)
+- **TMDB enrichment** for plots, genres, cast, keywords, runtime
 
-### **Task-to-Directory Mapping**
+Outputs feed into `TasteEmbeddingGenerator/` as CSVs such as:
+- `movielens_movies_tmdb.csv`, `movietweetings_movies_tmdb.csv`, `inspired_movie_database_tmdb.csv`
+- `movielens_ratings.csv`, `redial_dialogues.csv`, `ccpe_dialogues.csv`, `goemotions_text_emotions.csv`
 
-| Task | Description | Directory |
-|------|-------------|-----------|
-| **Task 1** | Generate user/movie embeddings and taste graph components | `TasteEmbeddingGenerator/` |
-| **Task 2** | Build and run the recommendation demo | `Demo/` |
-| **Task 3** | Agentic flow for conversational recommendation and tool reasoning | `AgenticFlow/` |
+" This module **does not** build embeddings or train models – it only prepares high-quality, standardized data.
 
----
+See `Dataset/README.md` for:
+- Exact directory tree (`processed/`)
+- Per-dataset processing steps
+- TMDB API usage and `.env` configuration
 
-## 🧑‍💻 Collaboration Guidelines
+### `TasteEmbeddingGenerator/` – Movie & User Taste Embeddings
+End-to-end embedding pipeline that constructs:
+- **Movie embeddings** from TMDB-enriched metadata
+- **User embeddings** from ratings + dialogue behavior
+- Comparison between **OpenAI** and **HuggingFace** backends
 
-### **1. Work Inside Your Assigned Directory**
-Each member should implement features **within the directory corresponding to their assigned task**.
+Key ideas:
+- Unified movie description text (title + genres + plot + cast + keywords, etc.)
+- Deduplication via `tmdb_id` across sources
+- Pluggable backends:
+  - `SentenceTransformerBackend` (e.g., `BAAI/bge-base-en-v1.5`)
+  - `OpenAIEmbeddingBackend` (e.g., `text-embedding-3-large`)
+- Hybrid user embeddings:
+  - Rating-based centroid (liked movies, rating ≥ 4.0)
+  - Text-based profile (dialogue utterances)
+  - Fused with α-mix: `final = α * rating_vec + (1 − α) * text_vec`
 
-When your module is ready to push, please include:
-- A brief explanation (`README.md` or `.txt`) describing:
-  - What was implemented  
-  - How to run or test it  
-  - Any assumptions or design choices  
+Artifacts:
+- `artifacts/movie_embeddings.parquet`
+- `artifacts/user_embeddings.parquet`
 
-This helps team members understand updates quickly and integrate modules smoothly.
+Evaluation utilities (details in sub-README):
+- **Genre Separation Gap** (same-genre vs different-genre distances)
+- **HitRate@10** for recommendation capability (embedding-only)
 
----
+See `TasteEmbeddingGenerator/README.md` for:
+- Full pipeline description
+- Config examples (TasteEmbeddingConfig)
+- How to run generator & analysis scripts
+- External artifact links and download_artifacts.sh
 
-## 📦 Virtual Environment & Dependencies
+### `RecommenderBackend/` – LLM-Augmented Recommender Core
+Backend that serves **personalized movie recommendations** using:
+- FAISS vector search (Top-K retrieval over movie embeddings)
+- Persistent **conversational taste memory** (EMA-based user vector updates)
+- **Fine-tuned GPT-4o-mini reranker** for Top-K → Top-5 selection
+- Natural-language explanations generated by GPT
+- Logging utilities for offline eval
 
-We will use a **virtual environment** throughout the project.
+High-level flow:
+1. **Embed user input** (preferences, favorite movies, chat history)
+2. **Update taste vector** via EMA fusion
+3. **Retrieve Top-20** movies using FAISS (cosine / inner product)
+4. **Rerank with GPT**:
+  - Either natural-language reasoning (LLM picks Top-5 + explains)
+  - Or numeric score fusion: `score = α * sim + (1 − α) * predicted_rating`
+5. **Return Top-N results** with rationale
 
-### **When pushing code:**
-1. Update `requirements.txt` if new dependencies were added.
-2. Before pushing changes:
+Fine-tuning details (in sub-README):
+- Letterboxd-style dataset scripts
+- Conversion to chat JSONL format
+- Fine-tuning GPT-4o-mini as a **rating predictor (1–5)**
+- Evaluation scripts for embedding alignment and GPT-as-a-judge
 
-```bash
-pip freeze > requirements.txt
+See `RecommenderBackend/README.md` for:
+- File-by-file explanation (`recommender.py`, `vector_index.py`, `gpt_reranker.py`, etc.)
+- CLI usage (`test_cli.py`)
+- Logging and eval procedures
+
+### `Demo/` – ReelReason Frontend
+React + TypeScript + Tailwind demo app (`movie-rec-demo/`) that showcases:
+- Conversational movie recommendations
+- Explanation-rich movie cards
+- “Taste Wrapped” visualization of user preferences
+- Profile & review management
+
+Tech stack:
+- **React 19**, **TypeScript**
+- **Vite** dev/build
+- **Tailwind CSS v4**
+- **React Router v7**
+- **Lucide React** icons
+
+Key pages (routes):
+- `/` – Home: carousels + floating chatbot
+- `/auth` – Sign in / Sign up
+- `/reviews` – Manual review entry & history
+- `/visualization` – Taste Wrapped charts (scatter, radar, yearly summary)
+- `/profile` – User settings & connected services
+
+Backend integration via environment variables:
+```env
+VITE_API_URL=http://localhost:8000        # RecommenderBackend
+VITE_CHAT_API_URL=http://localhost:8001   # Agentic chatbot (optional)
 ```
-3. Commit and push the updated file.
 
-This keeps dependency management consistent for all modules.
-
----
-
-## 🔄 Integration Workflow
-
-When pushing major updates:
-
-1. Add a short summary in the associated directory (README or notes file).
-2. Ensure your code runs using only packages listed in requirements.txt.
-3. Avoid breaking imports in other directories.
-4. If shared utilities are needed later, we will add a utils/ directory.
+See `Demo/movie-rec-demo/README.md` for:
+- Dev setup (`npm install`, `npm run dev`)
+- File/folder structure
 
 ---
 
-## 🚀 Setup Instructions
+## 🔄 End-to-End Workflow
 
-To create a virtual environment and install dependencies:
-
+### **1. Prepare datasets**
 ```bash
-python3 -m venv .YOURVENV
-source .YOURVENV/bin/activate
+cd Dataset
+# Run individual scripts as needed, e.g.:
+python download_movielens.py
+python preprocess_movielens.py
+python tmdb_enrich_movielens.py
+# ... similarly for other datasets
+```
+
+### **2. Generate embeddings**
+```bash
+cd TasteEmbeddingGenerator
+python -m TasteEmbeddingGenerator.Generator
+# or run movie/user embedding steps separately
+```
+
+### **3. Start the backend**
+```bash
+cd RecommenderBackend
+python test_cli.py     # CLI demo
+# or start your API server module if defined
+```
+
+### **4. Run the frontend**
+```bash
+cd Demo/movie-rec-demo
+npm install
+npm run dev
+```
+
+### **5. Connect everything**
+- Point the frontend `.env` to your backend URLs
+- Make sure the backend can locate `TasteEmbeddingGenerator/artifacts/*.parquet`
+- Confirm TMDB API keys and OpenAI keys are loaded from project-level `.env`
+
+---
+
+## ⚙️ Environment & Version Control Guidelines
+### Python side (Dataset, TasteEmbeddingGenerator, RecommenderBackend)
+- Use a virtualenv per repo clone:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+- Install dependencies from each module’s `requirements.txt`:
+```bash
 pip install -r requirements.txt
 ```
+- **When you add a new Python dependency** in any module:
+```bash
+pip install <package>
+pip freeze > requirements.txt
+```
+Then commit the updated `requirements.txt` with your code.
+- `.gitignore` should keep out:
+  - `venv/`, `.env`, `__pycache__/`, `*.parquet`, logs, and build artifacts.
 
-Always install dependencies this way before testing integration.
+## Frontend side (`Demo/`)
+- Use `npm` (or `pnpm`/`yarn` if you standardize it) and commit:
+  - `package.json`, `package-lock.json`
+  - `vite.config.ts`, `tailwind.config.js`
+  - Source under `src/`
+- Do **not** commit `node_modules/` or build output (`dist/`).
+
+---
+
+## 📍 How to Read More (Per-Module Docs)
+For deeper details on:
+- exact dataset formats and statistics → `Dataset/README.md`
+- embedding design, configs, and evaluation → `TasteEmbeddingGenerator/README.md`
+- retrieval/reranking algorithms and fine-tuning → `RecommenderBackend/README.md`
+- UI flows and component structure → `Demo/movie-rec-demo/README.md`
+
+…open each sub-README; the main README is intentionally high-level and conceptual.
+
+---
+
+## 👥 Contributors
+
+| Name | Directory | Key Contributions |
+|------|------|-------------------|
+| **Eesun Moon (em3907)** | `Dataset`, `TasteEmbeddingGenerator` | Dataset pipeline design, Dataset Collection/Integration, Embedding Generator Architecture |
+| **Emily Wang (eaw2233)** | `RecommenderBackend` | recommender backend development: FAISS integration, GPT reranker development, fine-tuning pipeline |
+| **Nikhil Sharma (ns3942)** | `Demo` | front-end design: TMDP API integration, User Taste Geneator |
